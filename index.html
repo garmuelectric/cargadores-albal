@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Cargadores Albal - Contador en horas</title>
+<title>Cargadores Albal - Contador y Estado</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- Leaflet -->
@@ -41,13 +40,17 @@ body { margin:0; font-family:sans-serif; }
 <div id="alerta-banner"></div>
 
 <script>
-// -------------------- Mapa --------------------
+// =========================
+// MAPA
+// =========================
 const map = L.map('map').setView([39.396, -0.409], 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap'
 }).addTo(map);
 
-// -------------------- Firebase --------------------
+// =========================
+// FIREBASE
+// =========================
 let db = null;
 try {
   const firebaseConfig = {
@@ -60,29 +63,32 @@ try {
     appId: "1:827036195864:web:6f737a763b94a51234376d"
   };
   firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
+  db = firebase.database();
   console.log("Firebase conectado ✅");
 } catch(e){ console.warn("Firebase NO conectado:", e); }
 
-// -------------------- Config --------------------
+// =========================
+// CONFIGURACIÓN CARGADORES
+// =========================
 const cargadores = [
-  { id:'San Carlos-A', lat:39.39896, lng:-0.40768, offset:[0,0] },
-  { id:'San Carlos-B', lat:39.39880, lng:-0.40773, offset:[0,0] },
-  { id:'Reten Policia-A', lat:39.39471, lng:-0.41141, offset:[0,0] },
-  { id:'Reten Policia-B', lat:39.39454, lng:-0.41145, offset:[0,0] },
-  { id:'C.E.I.P. Balaguera-A', lat:39.39319, lng:-0.40987, offset:[0,0] },
-  { id:'C.E.I.P. Balaguera-B', lat:39.39319, lng:-0.40987, offset:[0.00015,0.00015] } // desplazamiento visible
+  { id:'San Carlos-A', lat:39.39896, lng:-0.40768 },
+  { id:'San Carlos-B', lat:39.39880, lng:-0.40773 },
+  { id:'Reten Policia-A', lat:39.39471, lng:-0.41141 },
+  { id:'Reten Policia-B', lat:39.39454, lng:-0.41145 },
+  { id:'C.E.I.P. Balaguera-A', lat:39.39319, lng:-0.40987, offset:[0.00003,0] }, 
+  { id:'C.E.I.P. Balaguera-B', lat:39.39319, lng:-0.40987, offset:[0,0.00003] }, 
 ];
 
 let marcadores = {};
 let estados = {};
 let timersPopup = {};
-const TIEMPO_USO_MS = 4*60*60*1000; // 4 horas
-const TIEMPO_AMBAR_MS = 5*60*1000;   // 5 min
-const ALERTA_MS = 10*60*1000;        // 10 min
+const TIEMPO_USO_MS = 4*60*60*1000;   // 4 horas
+const TIEMPO_AMBAR_MS = 5*60*1000;     // 5 minutos
+const ALERTA_MS = 10*60*1000;          // 10 minutos
 
-// -------------------- Banner --------------------
+// =========================
+// BANNER DE ALERTA
+// =========================
 function mostrarAlerta(texto){
   const banner = document.getElementById("alerta-banner");
   banner.innerText = texto;
@@ -90,129 +96,145 @@ function mostrarAlerta(texto){
   setTimeout(()=> banner.classList.remove("show"),7000);
 }
 
-// -------------------- Popup --------------------
+// =========================
+// CREAR POPUP
+// =========================
 function crearPopup(id){
-  const div=document.createElement("div");
-  div.className="popup-container";
+  const div = document.createElement("div");
+  div.className = "popup-container";
 
-  const titulo=document.createElement("span");
-  titulo.className="popup-title";
-  titulo.innerText=id;
+  const titulo = document.createElement("span");
+  titulo.className = "popup-title";
+  titulo.innerText = id;
   div.appendChild(titulo);
 
-  const estado=document.createElement("span");
-  estado.className="popup-estado";
-  estado.innerText="Estado: "+(estados[id]||"green").toUpperCase();
+  const estado = document.createElement("span");
+  estado.className = "popup-estado";
+  estado.innerText = "Estado: " + (estados[id]||"green").toUpperCase();
   div.appendChild(estado);
 
-  const timerSpan=document.createElement("span");
-  timerSpan.className="popup-timer";
-  timerSpan.innerText="Calculando...";
+  const timerSpan = document.createElement("span");
+  timerSpan.className = "popup-timer";
   div.appendChild(timerSpan);
 
-  const btnLibre=document.createElement("button");
-  btnLibre.innerText="Libre";
-  btnLibre.className="popup-btn";
-  btnLibre.style.background="green";
-  btnLibre.style.color="white";
-  btnLibre.onclick=()=>cambiarEstado(id,"green");
+  const btnLibre = document.createElement("button");
+  btnLibre.innerText = "Libre";
+  btnLibre.className = "popup-btn";
+  btnLibre.style.background = "green";
+  btnLibre.style.color = "white";
+  btnLibre.onclick = () => cambiarEstado(id,"green");
   div.appendChild(btnLibre);
 
-  const btnUso=document.createElement("button");
-  btnUso.innerText="En uso";
-  btnUso.className="popup-btn";
-  btnUso.style.background="red";
-  btnUso.style.color="white";
-  btnUso.onclick=()=>cambiarEstado(id,"red");
+  const btnUso = document.createElement("button");
+  btnUso.innerText = "En uso";
+  btnUso.className = "popup-btn";
+  btnUso.style.background = "red";
+  btnUso.style.color = "white";
+  btnUso.onclick = () => cambiarEstado(id,"red");
   div.appendChild(btnUso);
 
+  // =========================
+  // CONTADOR EN HORAS:MIN:SEG
+  // =========================
   function actualizarTimer(){
-    const val = estados[id+"_ts"]||0;
-    if(estados[id]==="red" && val){
-      const elapsed = Date.now() - val;
-      let restante = TIEMPO_USO_MS + TIEMPO_AMBAR_MS - elapsed;
+    const ts = estados[id+"_ts"];
+    const estadoActual = estados[id]||"green";
+    if(estadoActual === "red" && ts){
+      let restante = TIEMPO_USO_MS + TIEMPO_AMBAR_MS - (Date.now() - ts);
       if(restante<0) restante=0;
-
-      const horas = Math.floor(restante / 3600000);
-      const minutos = Math.floor((restante % 3600000)/60000);
-      const segundos = Math.floor((restante % 60000)/1000);
-
-      timerSpan.innerText=`Cambio a verde en: ${horas}h ${minutos}m ${segundos}s`;
-    } else if(estados[id]==="orange"){
-      timerSpan.innerText="En ámbar, pronto verde";
-    } else timerSpan.innerText="Libre";
+      const h = Math.floor(restante/3600000);
+      const m = Math.floor((restante%3600000)/60000);
+      const s = Math.floor((restante%60000)/1000);
+      timerSpan.innerText = `Cambio a verde en: ${h}h ${m}m ${s}s`;
+    } else if(estadoActual==="orange"){
+      timerSpan.innerText = "En ámbar, pronto verde";
+    } else {
+      timerSpan.innerText = "Libre";
+    }
   }
 
   actualizarTimer();
   if(timersPopup[id]) clearInterval(timersPopup[id]);
-  timersPopup[id]=setInterval(actualizarTimer,1000);
+  timersPopup[id] = setInterval(actualizarTimer,1000);
 
   return div;
 }
 
-// -------------------- Cambiar estado --------------------
-function cambiarEstado(id,nuevoEstado){
+// =========================
+// CAMBIAR ESTADO
+// =========================
+function cambiarEstado(id, nuevoEstado){
   if(!db) return;
   const timestamp = Date.now();
-  db.ref("cargadores/"+id).set({estado:nuevoEstado,timestamp});
-  estados[id+"_ts"]=timestamp;
+  db.ref("cargadores/"+id).set({ estado:nuevoEstado, timestamp });
+  estados[id+"_ts"] = timestamp;
+  estados[id] = nuevoEstado;
   if(nuevoEstado==="red") programarTimers(id,timestamp);
 }
 
-// -------------------- Timers --------------------
-function cambiarEstado(id, nuevoEstado){
-  if(!db) return console.warn("Firebase no conectado");
-  const timestamp = Date.now();
-  console.log("Cambiando estado:", id, nuevoEstado);
-  db.ref("cargadores/"+id).set({ estado: nuevoEstado, timestamp: timestamp });
-}
+// =========================
+// TIMERS AUTOMÁTICOS
+// =========================
+function programarTimers(id,startTime){
+  if(!window.timers) window.timers={};
+  if(window.timers[id]){
+    clearTimeout(window.timers[id].amber);
+    clearTimeout(window.timers[id].verde);
+    clearTimeout(window.timers[id].alerta);
+  } else window.timers[id]={};
 
-
-  const ahora=Date.now();
-  const elapsed=ahora-startTime;
-  const restante4h=TIEMPO_USO_MS-elapsed;
-  const restanteAlerta=TIEMPO_USO_MS-ALERTA_MS-elapsed;
-  const restanteAmber=TIEMPO_USO_MS+TIEMPO_AMBAR_MS-elapsed;
+  const elapsed = Date.now()-startTime;
+  const restante4h = TIEMPO_USO_MS - elapsed;
+  const restanteAlerta = TIEMPO_USO_MS - ALERTA_MS - elapsed;
+  const restanteAmber = TIEMPO_USO_MS + TIEMPO_AMBAR_MS - elapsed;
 
   if(restanteAlerta>0){
-    window.timers[id].alerta=setTimeout(()=> mostrarAlerta(`Cargador ${id} debe retirarse en 10 min`),restanteAlerta);
+    window.timers[id].alerta = setTimeout(()=> mostrarAlerta(`Cargador ${id} debe retirarse en 10 min`), restanteAlerta);
   } else if(restanteAlerta<=0 && restante4h>0){
     mostrarAlerta(`Cargador ${id} debe retirarse en 10 min`);
   }
 
   if(restante4h>0){
-    window.timers[id].amber=setTimeout(()=> db.ref("cargadores/"+id+"/estado").set("orange"),restante4h);
+    window.timers[id].amber = setTimeout(()=> db.ref("cargadores/"+id+"/estado").set("orange"), restante4h);
   } else db.ref("cargadores/"+id+"/estado").set("orange");
 
   if(restanteAmber>0){
-    window.timers[id].verde=setTimeout(()=> db.ref("cargadores/"+id+"/estado").set("green"),restanteAmber);
+    window.timers[id].verde = setTimeout(()=> db.ref("cargadores/"+id+"/estado").set("green"), restanteAmber);
   } else db.ref("cargadores/"+id+"/estado").set("green");
 }
 
-// -------------------- Crear marcadores --------------------
+// =========================
+// CREAR MARCADORES
+// =========================
 cargadores.forEach(c=>{
-  const lat=c.lat+(c.offset?.[0]||0);
-  const lng=c.lng+(c.offset?.[1]||0);
-  const marker=L.circleMarker([lat,lng],{
+  const lat = c.lat + (c.offset?.[0]||0);
+  const lng = c.lng + (c.offset?.[1]||0);
+
+  const marker = L.circleMarker([lat,lng], {
     radius:12, color:"#000", fillOpacity:0.9, fillColor:"green"
   }).addTo(map);
-  marcadores[c.id]=marker;
+
+  marcadores[c.id] = marker;
 
   if(db){
-    const ref=db.ref("cargadores/"+c.id);
-    ref.once("value",snap=>{
-      if(snap.val()===null) ref.set({estado:"green",timestamp:Date.now()});
+    const ref = db.ref("cargadores/"+c.id);
+    // inicializar si no existe
+    ref.once("value", snap=>{
+      if(snap.val()===null) ref.set({estado:"green", timestamp:Date.now()});
     });
-    ref.on("value", snap => {
-  const val = snap.val();
-  const estado = val?.estado || "green";
-  estados[c.id] = estado;
-  marker.setStyle({ fillColor: estado });
-  if(marker.isPopupOpen()) marker.setPopupContent(crearPopup(c.id));
-});
 
+    ref.on("value", snap=>{
+      const val = snap.val();
+      const estado = val?.estado || "green";
+      estados[c.id] = estado;
+      estados[c.id+"_ts"] = val?.timestamp || Date.now();
+      marker.setStyle({ fillColor: estado });
+      if(marker.isPopupOpen()) marker.setPopupContent(crearPopup(c.id));
+      if(estado==="red" && val?.timestamp) programarTimers(c.id, val.timestamp);
+    });
+  }
 
-  marker.on("click",()=> marker.bindPopup(crearPopup(c.id)).openPopup());
+  marker.on("click", ()=> marker.bindPopup(crearPopup(c.id)).openPopup());
 });
 </script>
 </body>
