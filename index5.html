@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Cargadores Albal - Sistema Completo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+body { margin:0; font-family:sans-serif; }
+#map { height:100vh; }
+
+.popup-container { text-align:center; width:190px; }
+.popup-title { font-weight:bold; font-size:16px; margin-bottom:5px; display:block; }
+.popup-estado { font-weight:bold; margin-bottom:5px; display:block; }
+.popup-timer { font-size:14px; margin-bottom:8px; }
+
+.popup-btn {
+  padding:8px;
+  border:none;
+  border-radius:6px;
+  margin:4px 0;
+  font-weight:bold;
+  cursor:pointer;
+  width:100%;
+}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+
+// ===================== MAPA =====================
+const map = L.map('map').setView([39.396, -0.409], 15);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+
+// ===================== FIREBASE =====================
+const firebaseConfig = {
+  apiKey: "AIzaSyBCk-EzZLoMp5QVm-mxheP_tb_7ycoDkfs",
+  authDomain: "cargadores-de-albal.firebaseapp.com",
+  databaseURL: "https://cargadores-de-albal-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "cargadores-de-albal",
+  storageBucket: "cargadores-de-albal.firebasestorage.app",
+  messagingSenderId: "827036195864",
+  appId: "1:827036195864:web:6f737a763b94a51234376d"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+
+// ===================== CONFIG =====================
+const TIEMPO_USO = 4 * 60 * 60 * 1000;   // 4 horas
+
+const cargadores = [
+  { id:'San Carlos-A', lat:39.39896, lng:-0.40768 },
+  { id:'San Carlos-B', lat:39.39880, lng:-0.40773 },
+  { id:'Reten Policia-A', lat:39.39471, lng:-0.41141 },
+  { id:'Reten Policia-B', lat:39.39454, lng:-0.41145 },
+  { id:'C.E.I.P. Balaguera-A', lat:39.39302, lng:-0.40987 },
+  { id:'C.E.I.P. Balaguera-B', lat:39.39280, lng:-0.40983 }
+];
+
+let marcadores = {};
+let timers = {};
+
+
+// ===================== SEPARAR PUNTOS DUPLICADOS =====================
+const posicionesUsadas = {};
+
+function obtenerCoordenadaSeparada(lat, lng){
+  const clave = lat + "," + lng;
+  if(!posicionesUsadas[clave]){
+    posicionesUsadas[clave] = 0;
+  } else {
+    posicionesUsadas[clave]++;
+  }
+
+  const desplazamiento = posicionesUsadas[clave] * 0.00004;
+  return [lat + desplazamiento, lng + desplazamiento];
+}
+
+
+// ===================== CREAR POPUP =====================
+function crearPopup(id, estado, timestamp){
+
+  const div = document.createElement("div");
+  div.className = "popup-container";
+
+  div.innerHTML = `
+    <span class="popup-title">${id}</span>
+    <span class="popup-estado">Estado: ${estado.toUpperCase()}</span>
+    <span class="popup-timer" id="timer-${id}"></span>
+    <button class="popup-btn" style="background:green;color:white;" onclick="cambiarEstado('${id}','green')">Libre</button>
+    <button class="popup-btn" style="background:red;color:white;" onclick="cambiarEstado('${id}','red')">En uso</button>
+  `;
+
+  if(estado === "red" && timestamp){
+    iniciarContador(id, timestamp);
+  } else {
+    setTimeout(()=>{
+      const t = document.getElementById("timer-"+id);
+      if(t) t.innerText = "Libre";
+    },50);
+  }
+
+  return div;
+}
+
+
+// ===================== CONTADOR HH:MM:SS =====================
+function iniciarContador(id, timestamp){
+
+  if(timers[id]) clearInterval(timers[id]);
+
+  timers[id] = setInterval(()=>{
+    const restante = TIEMPO_USO - (Date.now() - timestamp);
+    const t = document.getElementById("timer-"+id);
+    if(!t) return;
+
+    if(restante <= 0){
+      t.innerText = "Tiempo agotado";
+      clearInterval(timers[id]);
+      return;
+    }
+
+    const h = Math.floor(restante/3600000);
+    const m = Math.floor((restante%3600000)/60000);
+    const s = Math.floor((restante%60000)/1000);
+
+    t.innerText = `Restante: ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  },1000);
+}
+
+
+// ===================== CAMBIAR ESTADO =====================
+window.cambiarEstado = function(id, estado){
+  db.ref("cargadores/"+id).set({
+    estado: estado,
+    timestamp: Date.now()
+  });
+};
+
+
+// ===================== CREAR MARCADORES =====================
+cargadores.forEach(c=>{
+
+  const coords = obtenerCoordenadaSeparada(c.lat, c.lng);
+
+  const marker = L.circleMarker(coords,{
+    radius:12,
+    color:"#000",
+    fillOpacity:0.9,
+    fillColor:"green"
+  }).addTo(map);
+
+  marcadores[c.id] = marker;
+
+  const ref = db.ref("cargadores/"+c.id);
+
+  ref.once("value", snap=>{
+    if(snap.val() === null){
+      ref.set({estado:"green", timestamp:Date.now()});
+    }
+  });
+
+  ref.on("value", snap=>{
+    const data = snap.val();
+    const estado = data?.estado || "green";
+    const timestamp = data?.timestamp;
+
+    marker.setStyle({fillColor: estado});
+
+    marker.unbindPopup();
+marker.bindPopup(crearPopup(c.id, estado, timestamp));
+
+  });
+
+});
+</script>
+
+</body>
+</html>
