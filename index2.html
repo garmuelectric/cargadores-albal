@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Cargadores Albal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS y JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <style>
+    body { margin:0; }
+    #map { height:100vh; }
+
+    .popup-btn {
+      padding:8px 12px;
+      border:none;
+      border-radius:6px;
+      margin-top:4px;
+      font-weight:bold;
+      cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+// --- MAPA CENTRADO EN ALBAL ---
+const map = L.map('map').setView([39.396, -0.409], 15);
+
+// --- TILE LAYER ---
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+// --- ESTADOS INICIALES ---
+let estados = {
+  "San Carlos-A": "green",
+  "San Carlos-B": "green",
+  "Reten Policia-A": "green",
+  "Reten Policia-B": "green",
+  "C.E.I.P. Balaguera-A": "green",
+  "C.E.I.P. Balaguer-B": "green"
+};
+
+// --- CARGADORES ---
+const cargadores = [
+  { id: 'San Carlos-A', lat: 39.39896, lng: -0.40768 },
+  { id: 'San Carlos-B', lat: 39.39880, lng: -0.40773 },
+  { id: 'Reten Policia-A', lat: 39.39471, lng: -0.41141 },
+  { id: 'Reten Policia-B', lat: 39.39454, lng: -0.41145 },
+  { id: 'C.E.I.P. Balaguera-A', lat: 39.39302, lng: -0.40987 },
+  { id: 'C.E.I.P. Balaguer-B', lat: 39.39286, lng: -0.40992 }
+];
+
+let marcadores = {};
+
+// --- FUNCION GLOBAL PARA CAMBIAR ESTADO ---
+window.cambiarEstado = function(id, nuevoEstado) {
+  estados[id] = nuevoEstado;
+
+  const marker = marcadores[id];
+  if(marker){
+    marker.setStyle({
+      fillColor: nuevoEstado,
+      fillOpacity: 0.9
+    });
+  }
+};
+
+// --- CREAR POPUP DINAMICO ---
+function crearPopupElement(id) {
+  const container = document.createElement("div");
+
+  const titulo = document.createElement("b");
+  titulo.innerText = id;
+  container.appendChild(titulo);
+  container.appendChild(document.createElement("br"));
+
+  const estado = document.createElement("span");
+  estado.innerText = "Estado: " + estados[id].toUpperCase();
+  container.appendChild(estado);
+  container.appendChild(document.createElement("br"));
+
+  // Botón Libre
+  const btnLibre = document.createElement("button");
+  btnLibre.innerText = "Libre";
+  btnLibre.className = "popup-btn";
+  btnLibre.style.background = "green";
+  btnLibre.style.color = "white";
+  btnLibre.onclick = function() { window.cambiarEstado(id, "green"); actualizarPopup(id); };
+  container.appendChild(btnLibre);
+
+  // Botón En uso
+  const btnUso = document.createElement("button");
+  btnUso.innerText = "En uso";
+  btnUso.className = "popup-btn";
+  btnUso.style.background = "red";
+  btnUso.style.color = "white";
+  btnUso.onclick = function() { window.cambiarEstado(id, "red"); actualizarPopup(id); };
+  container.appendChild(btnUso);
+
+  return container;
+}
+
+// --- FUNCION PARA ACTUALIZAR POPUP ---
+function actualizarPopup(id) {
+  const marker = marcadores[id];
+  if(marker && marker.isPopupOpen()){
+    marker.setPopupContent(crearPopupElement(id));
+  }
+}
+
+// --- CREAR MARCADORES ---
+function crearMarcadores() {
+  cargadores.forEach(c => {
+
+    const marker = L.circleMarker([c.lat, c.lng], {
+      radius: 12,
+      fillColor: estados[c.id],
+      color: "#000",
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.9
+    }).addTo(map);
+
+    // Abrir popup al hacer click
+    marker.on("click", function () {
+      marker.bindPopup(crearPopupElement(c.id)).openPopup();
+    });
+
+    marcadores[c.id] = marker;
+  });
+}
+
+// --- INICIALIZAR MARCADORES ---
+crearMarcadores();
+
+</script>
+
+</body>
+</html>
