@@ -53,14 +53,15 @@ try {
   const firebaseConfig = {
     apiKey: "AIzaSyBCk-EzZLoMp5QVm-mxheP_tb_7ycoDkfs",
     authDomain: "cargadores-de-albal.firebaseapp.com",
-    databaseURL: "https://cargadores-de-albal-default-rtdb.europe-west1.firebasedatabase.app",
+    databaseURL: "https://cargadores-de-albal-default-rtdb.europe-west1.firebasedatabase.app/",
     projectId: "cargadores-de-albal",
     storageBucket: "cargadores-de-albal.firebasestorage.app",
     messagingSenderId: "827036195864",
     appId: "1:827036195864:web:6f737a763b94a51234376d"
   };
   firebase.initializeApp(firebaseConfig);
-  db = firebase.database();
+const db = firebase.database();
+
   console.log("Firebase conectado ✅");
 } catch(e){ console.warn("Firebase NO conectado:", e); }
 
