@@ -160,13 +160,13 @@ function cambiarEstado(id,nuevoEstado){
 }
 
 // -------------------- Timers --------------------
-function programarTimers(id,startTime){
-  if(!window.timers) window.timers={};
-  if(window.timers[id]){
-    clearTimeout(window.timers[id].amber);
-    clearTimeout(window.timers[id].verde);
-    clearTimeout(window.timers[id].alerta);
-  } else window.timers[id]={};
+function cambiarEstado(id, nuevoEstado){
+  if(!db) return console.warn("Firebase no conectado");
+  const timestamp = Date.now();
+  console.log("Cambiando estado:", id, nuevoEstado);
+  db.ref("cargadores/"+id).set({ estado: nuevoEstado, timestamp: timestamp });
+}
+
 
   const ahora=Date.now();
   const elapsed=ahora-startTime;
@@ -203,16 +203,14 @@ cargadores.forEach(c=>{
     ref.once("value",snap=>{
       if(snap.val()===null) ref.set({estado:"green",timestamp:Date.now()});
     });
-    ref.on("value",snap=>{
-      const val=snap.val();
-      const estado=val?.estado||"green";
-      estados[c.id]=estado;
-      estados[c.id+"_ts"]=val?.timestamp||Date.now();
-      marker.setStyle({fillColor:estado});
-      if(marker.isPopupOpen()) marker.setPopupContent(crearPopup(c.id));
-      if(estado==="red" && val?.timestamp) programarTimers(c.id,val.timestamp);
-    });
-  }
+    ref.on("value", snap => {
+  const val = snap.val();
+  const estado = val?.estado || "green";
+  estados[c.id] = estado;
+  marker.setStyle({ fillColor: estado });
+  if(marker.isPopupOpen()) marker.setPopupContent(crearPopup(c.id));
+});
+
 
   marker.on("click",()=> marker.bindPopup(crearPopup(c.id)).openPopup());
 });
