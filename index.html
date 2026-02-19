@@ -9,13 +9,19 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <style>
-body { margin:0; font-family:Arial, sans-serif; }
-#map { height:100vh; }
+body { 
+  margin:0; 
+  font-family:Arial, sans-serif; 
+}
 
+#map { 
+  height:100vh; 
+}
+
+/* HEADER */
 .header {
   position:absolute;
   top:15px;
@@ -28,32 +34,22 @@ body { margin:0; font-family:Arial, sans-serif; }
   font-size:18px;
   font-weight:bold;
   z-index:1000;
+  text-align:center;
 }
 
-.auth-box {
-  position:absolute;
-  top:15px;
-  right:15px;
-  z-index:1000;
+/* RESPONSIVE MÓVIL */
+@media (max-width: 600px) {
+  .header {
+    top:10px;
+    font-size:16px;
+    padding:8px 16px;
+  }
 }
 
-.auth-box input {
-  padding:6px;
-  margin:2px;
-  border-radius:6px;
-  border:1px solid #ccc;
-}
-
-.auth-box button {
-  padding:6px 10px;
-  border:none;
-  border-radius:6px;
-  cursor:pointer;
-}
-
+/* ICONO */
 .icono-rayo {
   position: relative;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
   transition: transform 0.3s ease;
 }
 
@@ -61,20 +57,9 @@ body { margin:0; font-family:Arial, sans-serif; }
   animation: pulso 1s infinite;
 }
 
-.contador-mini {
-  position:absolute;
-  bottom:2px;
-  left:50%;
-  transform:translateX(-50%);
-  color:white;
-  font-size:10px;
-  font-weight:bold;
-  text-align:center;
-}
-
 @keyframes pulso {
   0% { transform: scale(1); }
-  50% { transform: scale(1.2); }
+  50% { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
 </style>
@@ -82,81 +67,38 @@ body { margin:0; font-family:Arial, sans-serif; }
 <body>
 
 <div class="header">⚡ GarmuElectric</div>
-
-<div class="auth-box" id="authBox">
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Contraseña">
-  <button onclick="login()">Entrar</button>
-  <div id="login-error" style="color:red;margin-top:4px;font-size:12px;"></div>
-</div>
-
 <div id="map"></div>
 
 <script>
+
 // ================= FIREBASE CONFIG =================
 const firebaseConfig = {
   apiKey: "TU_API_KEY",
-  authDomain: "cargadores-albal-de7f3.firebaseapp.com",
-  databaseURL: "https://cargadores-albal-de7f3-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "cargadores-albal-de7f3",
-  storageBucket: "cargadores-albal-de7f3.appspot.com",
-  messagingSenderId: "341134061477",
-  appId: "1:341134061477:web:329c5cc52b29ac963a824c"
+  authDomain: "cargadores-de-albal.firebaseapp.com",
+  databaseURL: "https://cargadores-de-albal-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "cargadores-de-albal",
+  storageBucket: "cargadores-de-albal.appspot.com",
+  messagingSenderId: "XXXX",
+  appId: "XXXX"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const auth = firebase.auth();
-
-// ================= USUARIOS =================
-const usuarios = {
-  "juan@example.com": {id:1, nombre:"Juan Pérez", telefono:"+34600111222"},
-  "maria@example.com": {id:2, nombre:"María López", telefono:"+34600333444"},
-  "carlos@example.com": {id:3, nombre:"Carlos Gómez", telefono:"+34600555666"}
-};
-
-let usuarioActual = null;
-let usuarioID = null;
-let usuarioTelefono = null;
-
-// ================= AUTH =================
-auth.onAuthStateChanged(user=>{
-  usuarioActual = user;
-  const box = document.getElementById("authBox");
-  if(user){
-    const info = usuarios[user.email];
-    if(!info){
-      alert("Usuario no registrado en WhatsApp");
-      auth.signOut();
-      return;
-    }
-    usuarioID = info.id;
-    usuarioTelefono = info.telefono;
-    box.innerHTML = `<span style="background:#28a745;color:white;padding:6px 10px;border-radius:6px;">Conectado</span>
-                     <button onclick="logout()">Salir</button>`;
-  }
-});
-
-function login(){
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  const errorDiv = document.getElementById("login-error");
-  errorDiv.innerText = "";
-  auth.signInWithEmailAndPassword(email,password)
-      .catch(error => { errorDiv.innerText = error.message; });
-}
-
-function logout(){
-  auth.signOut();
-  location.reload();
-}
 
 // ================= MAPA =================
 const map = L.map('map').setView([39.396, -0.409], 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 // ================= CONFIG =================
-const TIEMPO_USO = 4*60*60*1000; // 4h
+const TIEMPO_USO = 4 * 60 * 60 * 1000;
+const HORA_NOCTURNA_INICIO = 22;
+const HORA_NOCTURNA_FIN = 7;
+
+function esHorarioNocturno(){
+  const hora = new Date().getHours();
+  return (hora >= HORA_NOCTURNA_INICIO || hora < HORA_NOCTURNA_FIN);
+}
+
 const cargadores = [
   { id:'San Carlos-A', lat:39.39896, lng:-0.40768 },
   { id:'San Carlos-B', lat:39.39880, lng:-0.40773 },
@@ -166,19 +108,20 @@ const cargadores = [
   { id:'CEIP-Balaguera-B', lat:39.39288, lng:-0.40980 }
 ];
 
-// ================= ICONO RAYO PRO =================
+// ================= ICONO PEQUEÑO =================
 function crearIconoRayo(color, texto=""){
-  const size = 35;
-  const svgSize = 20;
-  const contadorSize = 10;
+  const size = 35; // tamaño total del círculo
+  const svgSize = 20; // tamaño del rayo dentro
+  const contadorSize = 10; // tamaño del contador
+
   const svg = `
     <div style="
-      width:${size}px; height:${size}px;
-      background:${color};
-      border-radius:50%;
-      display:flex;
-      justify-content:center;
-      align-items:center;
+      width:${size}px; height:${size}px; 
+      background:${color}; 
+      border-radius:50%; 
+      display:flex; 
+      justify-content:center; 
+      align-items:center; 
       position:relative;
       box-shadow:0 1px 3px rgba(0,0,0,0.3);
     " class="icono-rayo">
@@ -198,77 +141,102 @@ function crearIconoRayo(color, texto=""){
 }
 
 // ================= CONTADOR =================
-function calcularTiempoRestante(timestamp){
-  const restante = TIEMPO_USO - (Date.now()-timestamp);
-  if(restante<=0) return "⛔";
-  const h = Math.floor(restante/3600000);
-  const m = Math.floor((restante%3600000)/60000);
-  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+let timers = {};
+
+function iniciarContador(id, timestamp){
+  if(timers[id]) clearInterval(timers[id]);
+
+  timers[id] = setInterval(()=>{
+    const t = document.getElementById("timer-"+id);
+    if(!t) return;
+
+    if(esHorarioNocturno()){
+      t.innerText = "🌙 Sin límite nocturno";
+      return;
+    }
+
+    const restante = TIEMPO_USO - (Date.now() - timestamp);
+
+    if(restante <= 0){
+      t.innerText = "⛔ Tiempo superado";
+      return;
+    }
+
+    const h = Math.floor(restante/3600000);
+    const m = Math.floor((restante%3600000)/60000);
+    const s = Math.floor((restante%60000)/1000);
+
+    t.innerText =
+      `Restante: ${String(h).padStart(2,"0")}:`+
+      `${String(m).padStart(2,"0")}:`+
+      `${String(s).padStart(2,"0")}`;
+
+  },1000);
 }
 
 // ================= POPUP =================
-function crearPopup(id, estado, telefono){
+function crearPopup(id, estado, timestamp){
   const div = document.createElement("div");
-  const enlaceWhats = telefono?`<br><a href="https://wa.me/${telefono.replace(/\D/g,'')}" target="_blank">📲 WhatsApp</a>`:"";
-  const botones = `
+
+  div.innerHTML = `
+    <div style="font-size:24px;">⚡</div>
+    <strong>${id}</strong><br>
+    ${estado === "red" ? "🔴 EN USO" : "🟢 LIBRE"}<br>
+    <span id="timer-${id}"></span><br>
     <button onclick="cambiarEstado('${id}','green')">🟢 Libre</button>
     <button onclick="cambiarEstado('${id}','red')">🔴 En uso</button>
   `;
-  div.innerHTML = `<div style="font-size:28px;">⚡</div>
-                   <strong>${id}</strong><br>
-                   ${estado==="red"?"🔴 EN USO":"🟢 LIBRE"}<br>
-                   ${botones} ${enlaceWhats}`;
+
+  setTimeout(()=>{
+    if(estado === "red" && timestamp){
+      iniciarContador(id, timestamp);
+    }
+  },50);
+
   return div;
 }
 
 // ================= CAMBIAR ESTADO =================
 window.cambiarEstado = function(id, estado){
-  if(!usuarioActual){ alert("Inicia sesión"); return; }
   db.ref("cargadores/"+id).set({
     estado: estado,
-    timestamp: Date.now(),
-    usuarioID: usuarioID,
-    telefono: usuarioTelefono
+    timestamp: Date.now()
   });
 };
 
 // ================= MARCADORES =================
 cargadores.forEach(c=>{
-  const marker = L.marker([c.lat,c.lng],{icon:crearIconoRayo("green")}).addTo(map);
+  let marker = L.marker([c.lat, c.lng], {
+    icon: crearIconoRayo("green")
+  }).addTo(map);
+
   const ref = db.ref("cargadores/"+c.id);
 
   ref.on("value", snap=>{
-    const data = snap.val()||{};
-    const estado = data.estado||"green";
-    const timestamp = data.timestamp||Date.now();
-    const telefono = data.telefono||null;
+    const data = snap.val();
+    const estado = data?.estado || "green";
+    const timestamp = data?.timestamp;
 
-    marker.setIcon(crearIconoRayo(estado==="red"?"red":"green", estado==="red"?calcularTiempoRestante(timestamp):""));
+    const color = estado === "red" ? "red" : "green";
+    marker.setIcon(crearIconoRayo(color));
 
-    const el = marker.getElement();
-    if(el){
-      if(estado==="red") el.querySelector(".icono-rayo").classList.add("en-uso");
-      else el.querySelector(".icono-rayo").classList.remove("en-uso");
-    }
+    setTimeout(()=>{
+      const el = marker.getElement();
+      if(!el) return;
+
+      if(estado === "red"){
+        el.querySelector(".icono-rayo").classList.add("en-uso");
+      } else {
+        el.querySelector(".icono-rayo").classList.remove("en-uso");
+      }
+    },50);
 
     marker.unbindPopup();
-    marker.bindPopup(crearPopup(c.id, estado, telefono));
+    marker.bindPopup(crearPopup(c.id, estado, timestamp));
   });
-
-  setInterval(()=>{
-    const el = marker.getElement();
-    if(!el) return;
-    db.ref("cargadores/"+c.id).once("value").then(snap=>{
-      const d = snap.val();
-      if(!d) return;
-      if(d.estado==="red"){
-        el.querySelector(".contador-mini").innerText = calcularTiempoRestante(d.timestamp);
-      } else {
-        el.querySelector(".contador-mini").innerText = "";
-      }
-    });
-  },1000);
 });
+
 </script>
 </body>
 </html>
+
