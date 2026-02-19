@@ -109,29 +109,34 @@ const cargadores = [
 ];
 
 // ================= ICONO PEQUEÑO =================
-function crearIconoRayo(color){
+function crearIconoRayo(color, texto=""){
+  const size = 35; // tamaño total del círculo
+  const svgSize = 20; // tamaño del rayo dentro
+  const contadorSize = 10; // tamaño del contador
+
   const svg = `
     <div style="
-      width:36px; 
-      height:36px; 
+      width:${size}px; height:${size}px; 
       background:${color}; 
       border-radius:50%; 
       display:flex; 
       justify-content:center; 
       align-items:center; 
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      position:relative;
+      box-shadow:0 1px 3px rgba(0,0,0,0.3);
     " class="icono-rayo">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+      <svg width="${svgSize}" height="${svgSize}" viewBox="0 0 24 24" fill="white">
         <path d="M13 2L3 14H11L9 22L21 8H13L13 2Z"/>
       </svg>
+      <div class="contador-mini" style="font-size:${contadorSize}px;">${texto}</div>
     </div>
   `;
   return L.divIcon({
     html: svg,
     className: "",
-    iconSize: [36,36],
-    iconAnchor: [18,18],
-    popupAnchor: [0,-22]
+    iconSize:[size,size],
+    iconAnchor:[size/2,size/2],
+    popupAnchor:[0,-size/2]
   });
 }
 
@@ -234,3 +239,4 @@ cargadores.forEach(c=>{
 </script>
 </body>
 </html>
+
