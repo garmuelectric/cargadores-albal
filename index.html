@@ -13,9 +13,16 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <style>
-body { margin:0; font-family:Arial, sans-serif; }
-#map { height:100vh; }
+body { 
+  margin:0; 
+  font-family:Arial, sans-serif; 
+}
 
+#map { 
+  height:100vh; 
+}
+
+/* HEADER */
 .header {
   position:absolute;
   top:15px;
@@ -28,13 +35,19 @@ body { margin:0; font-family:Arial, sans-serif; }
   font-size:18px;
   font-weight:bold;
   z-index:1000;
+  text-align:center;
 }
 
+/* LOGIN */
 .auth-box {
   position:absolute;
   top:15px;
   right:15px;
   z-index:1000;
+  background:white;
+  padding:8px;
+  border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.2);
 }
 
 .auth-box input {
@@ -42,6 +55,7 @@ body { margin:0; font-family:Arial, sans-serif; }
   margin:2px;
   border-radius:6px;
   border:1px solid #ccc;
+  font-size:12px;
 }
 
 .auth-box button {
@@ -49,8 +63,38 @@ body { margin:0; font-family:Arial, sans-serif; }
   border:none;
   border-radius:6px;
   cursor:pointer;
+  background:#111;
+  color:white;
 }
 
+/* RESPONSIVE MÓVIL */
+@media (max-width: 600px) {
+
+  .header {
+    top:10px;
+    font-size:16px;
+    padding:8px 16px;
+  }
+
+  .auth-box {
+    top:60px;
+    right:50%;
+    transform:translateX(50%);
+    width:85%;
+    text-align:center;
+  }
+
+  .auth-box input {
+    width:90%;
+    margin-bottom:5px;
+  }
+
+  .auth-box button {
+    width:95%;
+  }
+}
+
+/* ICONO */
 .icono-rayo {
   position: relative;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
@@ -129,7 +173,6 @@ auth.onAuthStateChanged(user=>{
 function login(){
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
-
   auth.signInWithEmailAndPassword(email, password)
     .catch(error => alert(error.message));
 }
@@ -144,7 +187,7 @@ const map = L.map('map').setView([39.396, -0.409], 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 // ================= CONFIG =================
-const TIEMPO_USO = 4 * 60 * 60 * 1000; // 4 horas
+const TIEMPO_USO = 4 * 60 * 60 * 1000;
 const HORA_NOCTURNA_INICIO = 22;
 const HORA_NOCTURNA_FIN = 7;
 
@@ -162,31 +205,30 @@ const cargadores = [
   { id:'CEIP-Balaguera-B', lat:39.39288, lng:-0.40980 }
 ];
 
-// ================= ICONO RAYO REDONDO =================
+// ================= ICONO PEQUEÑO =================
 function crearIconoRayo(color){
   const svg = `
     <div style="
-      width:50px; 
-      height:50px; 
+      width:36px; 
+      height:36px; 
       background:${color}; 
       border-radius:50%; 
       display:flex; 
       justify-content:center; 
       align-items:center; 
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     " class="icono-rayo">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
         <path d="M13 2L3 14H11L9 22L21 8H13L13 2Z"/>
       </svg>
-      <div class="contador-mini"></div>
     </div>
   `;
   return L.divIcon({
     html: svg,
     className: "",
-    iconSize: [50,50],
-    iconAnchor: [25,25],
-    popupAnchor: [0,-30]
+    iconSize: [36,36],
+    iconAnchor: [18,18],
+    popupAnchor: [0,-22]
   });
 }
 
@@ -226,18 +268,13 @@ function iniciarContador(id, timestamp){
 function crearPopup(id, estado, timestamp){
   const div = document.createElement("div");
 
-  // Todos los usuarios pueden cambiar estado
-  const botones = `
-    <button onclick="cambiarEstado('${id}','green')">🟢 Libre</button>
-    <button onclick="cambiarEstado('${id}','red')">🔴 En uso</button>
-  `;
-
   div.innerHTML = `
-    <div style="font-size:28px;">⚡</div>
+    <div style="font-size:24px;">⚡</div>
     <strong>${id}</strong><br>
     ${estado === "red" ? "🔴 EN USO" : "🟢 LIBRE"}<br>
     <span id="timer-${id}"></span><br>
-    ${botones}
+    <button onclick="cambiarEstado('${id}','green')">🟢 Libre</button>
+    <button onclick="cambiarEstado('${id}','red')">🔴 En uso</button>
   `;
 
   setTimeout(()=>{
