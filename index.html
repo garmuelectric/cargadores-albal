@@ -86,7 +86,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ================= MAPA =================
-const map = L.map('map').setView([39.396, -0.409], 15);
+const map = L.map('map').setView([39.396, -0.409], 17);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 // ================= CONFIG =================
@@ -234,4 +234,5 @@ cargadores.forEach(c=>{
 </script>
 </body>
 </html>
+
 
