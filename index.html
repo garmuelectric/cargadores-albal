@@ -184,22 +184,35 @@ String(s).padStart(2,"0");
 // CAMBIAR ESTADO
 window.cambiar=function(id,estado){
 
-let data={estado:estado};
+db.ref("cargadores/"+id).once("value").then(snap=>{
 
-if(estado==="red"){
-data.inicio=Date.now();
+const data=snap.val();
+
+if(data?.bloqueado){
+alert(data.mensaje || "Punto bloqueado");
+return;
 }
 
-if(estado==="green"){
-data.fin=Date.now();
-}
+let update={estado:estado};
 
-db.ref("cargadores/"+id).update(data);
+if(estado==="red") update.inicio=Date.now();
+if(estado==="green") update.fin=Date.now();
+
+db.ref("cargadores/"+id).update(update);
+
+});
 
 }
 
 // POPUP
 function popup(id,data){
+
+if(data?.bloqueado){
+return `
+<strong>${id}</strong><br>
+🚧 <b>${data.mensaje || "Punto temporalmente bloqueado"}</b>
+`;
+}
 
 const estado=data?.estado||"green";
 const inicio=data?.inicio;
@@ -260,6 +273,14 @@ const ref=db.ref("cargadores/"+c.id);
 ref.on("value",snap=>{
 
 const data=snap.val()||{};
+
+if(data.bloqueado){
+marker.setIcon(crearIcono("black"));
+marker.unbindPopup();
+marker.bindPopup(popup(c.id,data));
+return;
+}
+
 const estado=data.estado||"green";
 
 let color="green";
